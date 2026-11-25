@@ -1,0 +1,1 @@
+volume_id,lot_id,acquisition_id,operator,reference_type,software_version,roi_source,voxel_pitch_um,connectivity,metric,definition,reference_value,unit,reference_uncertainty,mask_path,notes

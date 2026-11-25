@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "snackmorph-research"
+version = "0.1.0.dev0"
+requires-python = ">=3.10"
+dependencies = ["numpy", "scipy", "pandas", "opencv-python-headless", "scikit-image", "scikit-learn", "matplotlib", "statsmodels", "patsy", "openpyxl", "tifffile"]
+[project.optional-dependencies]
+fast = ["edt", "SimpleITK"]
+test = ["pytest"]
+[tool.setuptools.packages.find]
+where = ["src"]

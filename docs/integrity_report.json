@@ -1,0 +1,21 @@
+{
+  "JPEG": 100,
+  "JPEG_groups": 20,
+  "JPEG_split": {
+    "development": 40,
+    "test": 60
+  },
+  "JPEG_instance_observations": 3600,
+  "JPEG_profile_rows": 82800,
+  "VOX": 30,
+  "VOX_groups": 15,
+  "VOX_split": {
+    "development": 10,
+    "test": 20
+  },
+  "porosity_range_percent": [
+    0.48502382573179037,
+    82.6923076923077
+  ],
+  "status": "integrity checks passed; not a validation result"
+}

@@ -1,0 +1,1 @@
+Not a licence. Private review only. Decide the code licence with co-authors and institutional rights holders. Before public release, delete this file and create LICENSE.txt containing the actual complete approved licence text. Do not upload proprietary or unapproved third-party data/code. Choose dataset terms independently.

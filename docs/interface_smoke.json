@@ -1,0 +1,17 @@
+{
+  "VOX_clean_read": {
+    "shape": [
+      128,
+      128,
+      128
+    ],
+    "pitch_um": 8.9,
+    "exact_raw_value_match": true
+  },
+  "JPEG_development_smoke": {
+    "status": "read and segmented",
+    "detected_cells": 18,
+    "expected_cells": 18
+  },
+  "note": "Interface smoke tests only; no held-out measurement performance evaluated"
+}
