@@ -177,11 +177,49 @@ def chord(mk,x,y,nx,ny,tmax=60):
     dist,a_,b_=best
     return float(t[b_]-t[a_]+1.0),float(max(t[b_],0)),float(max(-t[a_],0))
 
+
+def chord_subpixel(mk, x, y, nx, ny):
+    """Length of the 0.5 isocontour of a bilinearly interpolated binary mask.
+
+    Quarter-pixel sampling and linear interpolation of threshold crossings;
+    not a correction for rasterisation or a continuous optical ground truth.
+    """
+    norm = np.hypot(nx, ny)
+    if not np.isfinite(norm) or norm == 0:
+        raise ValueError('invalid normal')
+    nx, ny = nx/norm, ny/norm
+    # Restrict the line to the padded image rectangle, including zero exterior.
+    mask = np.pad(np.asarray(mk, dtype=np.float32), 1)
+    x, y = x+1, y+1
+    low, high = -np.inf, np.inf
+    for q, d, limit in ((x,nx,mask.shape[1]-1),(y,ny,mask.shape[0]-1)):
+        if abs(d) < 1e-12:
+            if not 0 <= q <= limit: return 0.,0.,0.
+        else:
+            a,b=sorted((-q/d,(limit-q)/d)); low=max(low,a); high=min(high,b)
+    if high <= low: return 0.,0.,0.
+    t=np.linspace(low,high,max(2,int(np.ceil((high-low)/.25))+1))
+    v=map_coordinates(mask,[y+t*ny,x+t*nx],order=1,mode='constant',cval=0)
+    inside=v>=.5
+    edges=np.diff(np.r_[False,inside,False].astype(np.int8))
+    starts=np.flatnonzero(edges==1); ends=np.flatnonzero(edges==-1)-1
+    if not len(starts): return 0.,0.,0.
+    def distance(a,b): return max(t[a],-t[b],0.)
+    a,b=min(zip(starts,ends),key=lambda ab:(distance(*ab),-(ab[1]-ab[0])))
+    if distance(a,b)>15: return 0.,0.,0.
+    def cross(i,j):
+        return t[i]+(.5-v[i])*(t[j]-t[i])/(v[j]-v[i])
+    left=cross(a-1,a) if a>0 else t[a]
+    right=cross(b,b+1) if b+1<len(t) else t[b]
+    return float(right-left),float(max(right,0)),float(max(-left,0))
+
 FRACS = sorted(set([round(x,3) for x in np.arange(0.05,0.951,0.05)]+[0.125,0.375,0.625,0.875]))   # 23 posizioni relative
 
-def width_normals(mk, fracs=FRACS, win=0.02):
+def width_normals(mk, fracs=FRACS, win=0.02, *, method="legacy"):
     """Larghezza (px) del campione in ogni posizione relativa f della lunghezza L dell'asse: mediana di corde perpendicolari
     all'asse su una finestra ±win*L (passo 2 px). Restituisce ({f: larghezza_px}, L_px)."""
+    if method not in ("legacy", "subpixel"): raise ValueError(method)
+    chord_fn = chord if method == "legacy" else chord_subpixel
     ys_,xs_=np.nonzero(mk); oy,ox=max(ys_.min()-15,0),max(xs_.min()-15,0)
     mk=clean(mk[oy:ys_.max()+16,ox:xs_.max()+16])
     ax=axis_pca(mk); seg=np.r_[0,np.cumsum(np.hypot(*np.diff(ax,axis=0).T))]; L=seg[-1]; res={}
@@ -190,7 +228,7 @@ def width_normals(mk, fracs=FRACS, win=0.02):
         for ds in np.arange(-win*L,win*L+0.1,2.0):
             s=min(max(f*L+ds,0),L); i=int(np.searchsorted(seg,s)); i=min(max(i,1),len(ax)-2)
             i0,i1=max(i-4,0),min(i+4,len(ax)-1); t=ax[i1]-ax[i0]; t=t/(np.hypot(*t)+1e-9); nx,ny=-t[1],t[0]
-            x,y=ax[i]; w,a,b=chord(mk,x,y,nx,ny); ws.append(w)
+            x,y=ax[i]; w,a,b=chord_fn(mk,x,y,nx,ny); ws.append(w)
         res[f]=float(np.median(ws))
     return res,L
 
@@ -230,11 +268,11 @@ def load_caliper(path):
     S=pd.read_csv(path)
     return S.groupby(['lotto','t_gg','tecnologia','potenza','tau']).agg(d_ini=('d_ini','first'),d_cal=('d_fin_cal','first')).reset_index()
 
-def profile_table(samples, photo_key, lots, cal):
+def profile_table(samples, photo_key, lots, cal, *, width_method="legacy"):
     """Per ogni cella e lotto: larghezze in px -> mm con k = d_cal / media(larghezza a f=0.5 dei due campioni); righe per campione e posizione."""
     rows=[]
     for (r,c),d in sorted(samples.items()):
-        ws=[width_normals(m) for m in (d['A'],d['B'])]
+        ws=[width_normals(m, method=width_method) for m in (d['A'],d['B'])]
         for lot,t in lots:
             tech,pw,tau=layout(photo_key,r,c,lot)
             q=cal[(cal.lotto==lot)&(cal.t_gg==t)&(cal.tecnologia==tech)&(cal.potenza==pw)&(np.isclose(cal.tau,tau))]

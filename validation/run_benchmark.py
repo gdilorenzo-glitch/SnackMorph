@@ -26,7 +26,7 @@ def raw_colour(m, lab):
     if not body.any(): return np.full(3,np.nan)
     return np.median(lab[body],axis=0)
 
-def jpeg_case(root, row, truth, profiles):
+def jpeg_case(root, row, truth, profiles, candidate=False):
     iid=row.image_id; px=float(row.pixel_size_mm); t0=time.perf_counter()
     truth=truth.sort_values('label').reset_index(drop=True)
     labels=np.asarray(Image.open(root/'labels'/f'{iid}.png'))
@@ -51,7 +51,7 @@ def jpeg_case(root, row, truth, profiles):
         if t not in matches: continue
         p=matches[t]; r,c,name,sl,m=preds[p]; rec.update(matched=True,iou=iou[p,t],dice=2*overlap[p,t]/(area[t]+predarea[p]),cell_correct=bool(r==ref.row and c==ref.col),pred_row=r,pred_col=c,pred_object=name)
         try:
-            w,L=jpeg.width_normals(m); D=np.asarray([w[f]*px for f in FRACS]); L=float(L)*px
+            w,L=jpeg.width_normals(m, method="subpixel" if candidate else "legacy"); D=np.asarray([w[f]*px for f in FRACS]); L=float(L)*px
             # Same preprocessing as width_normals, for orientation only. Reverse on reference axis dot product, not on errors.
             yy,xx=np.nonzero(m); oy,ox=max(yy.min()-15,0),max(xx.min()-15,0)
             ax=jpeg.axis_pca(jpeg.clean(m[oy:yy.max()+16,ox:xx.max()+16]))
@@ -74,7 +74,7 @@ def jpeg_case(root, row, truth, profiles):
     log=dict(image_id=iid,group=row.group,split=row.split,variant=row.variant,status='ok',predicted=len(preds),expected=36,matched=len(matches),unmatched_truth=36-len(matches),unmatched_predicted=len(preds)-len(matches),overlap_pixels=int((cover>1).sum()),foreground_dice=dice(cover>0,labels>0),runtime_s=time.perf_counter()-t0)
     return records,widths,log
 
-def voxel_case(root,row,features):
+def voxel_case(root,row,features,candidate=False):
     vid=row.volume_id; folder=root/vid; t0=time.perf_counter(); path=str(folder/f'{vid}.VOX')
     st=vox.resolve_settings(path); reader=vox.open_volume(path,st); red=vox.sample_volume(reader,'ogni N',1,1,1)
     raw=np.fromfile(path,dtype='<u2').reshape((128,)*3)
@@ -86,21 +86,28 @@ def voxel_case(root,row,features):
     auto_error=None
     try: rois['automatic'],_=vox.roi_volume(red,vox.roi_params(),vox.ROI_STEP,vox.ROI_SMOOTH_Z,vox.roi_ds(red.shape))
     except Exception as e: auto_error=f'{type(e).__name__}: {e}'
-    for mode in ('known','automatic'):
+    errors={'automatic':auto_error}
+    modes=['known','automatic']
+    if candidate:
+        modes+=['known_midpoint','axial_envelope']
+        rois['known_midpoint']=truth['roi']
+        try: rois['axial_envelope'],_=vox.roi_axial_envelope(red)
+        except Exception as e: errors['axial_envelope']=f'{type(e).__name__}: {e}'
+    for mode in modes:
         rec=dict(volume_id=vid,group=row.group,split=row.split,variant=row.variant,family=row.family,roi_mode=mode,read_ok=True,pitch_um=p,status='ok',porosity_total_ref=row.porosity_total,porosity_open_ref=row.porosity_open,porosity_closed_ref=row.porosity_closed,roi_mm3_ref=row.roi_mm3,components_ref=row.connected_pore_components_6)
         records.append(rec); start=time.perf_counter()
         try:
-            if mode not in rois: raise ValueError(auto_error)
+            if mode not in rois: raise ValueError(errors.get(mode))
             roi=rois[mode]; rec.update(roi_dice=dice(roi,truth['roi']),roi_mm3=float(roi.sum())*(p/1000)**3)
             if not roi.any(): raise ValueError('empty ROI')
             img,roi_c,info=vox.prepare_working(red,roi,1,vox.PAD_VOXELS)
-            gs,T,material,pores,exterior=vox.segment(img,roi_c,vox.SEG_SIGMA,vox.THRESHOLD,vox.MIN_OBJECT_VOXELS)
+            gs,T,material,pores,exterior=(vox.segment_midpoint(img,roi_c) if mode=='known_midpoint' else vox.segment(img,roi_c,vox.SEG_SIGMA,vox.THRESHOLD,vox.MIN_OBJECT_VOXELS))
             por,labels,lut=vox.porosity_open_closed(pores,exterior,roi_c,vox.CONNECTIVITY)
             sl=tuple(slice(o,o+s) for o,s in zip(info['origin'],roi_c.shape)); full=np.zeros(red.shape,bool); full[sl]=material; rec['solid_dice']=dice(full,truth['solid']); full[sl]=pores; rec['pore_dice']=dice(full,truth['pores']); full[sl]=lut[labels]; rec['open_dice']=dice(full,truth['open_pores']); full[sl]=pores&~lut[labels]; rec['closed_dice']=dice(full,truth['closed_pores'])
             rec.update(threshold=T,porosity_total=por['porosita_totale'],porosity_open=por['porosita_aperta'],porosity_closed=por['porosita_chiusa'],components=por['n_pori_connessi'])
             # Nominal thickness on simple geometry only. Whole sphere/cylinder median is a defined benchmark target;
             # lamella interior excludes edges, no numerical truth for network/ellipsoid.
-            if mode=='known' and row.family in ('closed_spheres','open_channels','lamellae'):
+            if mode in ('known','known_midpoint') and row.family in ('closed_spheres','open_channels','lamellae'):
                 f=features[0]; zz,yy,xx=np.ogrid[tuple(slice(o,o+s) for o,s in zip(info['origin'],roi_c.shape))]; z=(zz-63.5)*p; y=(yy-63.5)*p; x=(xx-63.5)*p
                 if row.family=='closed_spheres': core=np.ones(roi_c.shape,bool); target=f['diameter_um']
                 elif row.family=='open_channels': target=f['diameter_um']; core=np.broadcast_to(abs(z)<(52*p-target),roi_c.shape)
@@ -109,6 +116,16 @@ def voxel_case(root,row,features):
                 rec.update(pore_thickness_ref_um=target,pore_thickness_um=float(np.median(lt[sel])) if sel.any() else np.nan,pore_thickness_eval_voxels=int(sel.sum())); del lt
                 if row.family=='lamellae':
                     sel=core&material&truth['solid'][sl]; lt,_=vox.local_thickness(material,p,vox.PSD_LEVELS); rec.update(wall_thickness_ref_um=f['wall_nominal_um'],wall_thickness_um=float(np.median(lt[sel])) if sel.any() else np.nan,wall_thickness_eval_voxels=int(sel.sum())); del lt
+                if candidate and mode=='known':
+                    true_pores=truth['pores'][sl]; true_material=truth['solid'][sl]
+                    lt,_=vox.local_thickness(true_pores,p,vox.PSD_LEVELS)
+                    sel=core&true_pores
+                    rec['pore_thickness_truth_mask_um']=float(np.median(lt[sel])) if sel.any() else np.nan
+                    del lt
+                    if row.family=='lamellae':
+                        lt,_=vox.local_thickness(true_material,p,vox.PSD_LEVELS); sel=core&true_material
+                        rec['wall_thickness_truth_mask_um']=float(np.median(lt[sel])) if sel.any() else np.nan
+                        del lt
         except Exception as e: rec.update(status='failed',error=f'{type(e).__name__}: {e}')
         rec['runtime_s']=time.perf_counter()-start
     return records,dict(volume_id=vid,group=row.group,split=row.split,variant=row.variant,status='ok',runtime_s=time.perf_counter()-t0)
@@ -118,17 +135,21 @@ def fingerprint():
     return {str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
 
 def main():
-    ap=argparse.ArgumentParser(); ap.add_argument('--data',type=Path,required=True); ap.add_argument('--out',type=Path,required=True); ap.add_argument('--split',choices=['development','test'],default='development'); ap.add_argument('--mode',choices=['jpeg','vox','both'],default='both'); ap.add_argument('--pilot',action='store_true'); ap.add_argument('--approved-plan',type=Path); a=ap.parse_args()
+    ap=argparse.ArgumentParser(); ap.add_argument('--data',type=Path,required=True); ap.add_argument('--out',type=Path,required=True); ap.add_argument('--split',choices=['development','test'],default='development'); ap.add_argument('--mode',choices=['jpeg','vox','both'],default='both'); ap.add_argument('--pilot',action='store_true'); ap.add_argument('--candidate',action='store_true'); ap.add_argument('--approved-plan',type=Path); a=ap.parse_args()
     if a.split=='test':
+        if a.candidate: ap.error('Candidate is development-only until protocol freeze.')
         if a.pilot or not a.approved_plan: ap.error('Test requires an approved frozen analysis plan (no pilot).')
         plan=json.loads(a.approved_plan.read_text());
         if plan.get('code_sha256')!=fingerprint() or not plan.get('criteria') or not plan.get('approved'): ap.error('Plan must contain matching code_sha256, agreed criteria, approved=true.')
     a.out.mkdir(parents=True,exist_ok=True); cv2.setNumThreads(1)
-    env={'python':platform.python_version(),'platform':platform.platform(),'split':a.split,'pilot':a.pilot,'mode':a.mode,'code_sha256':fingerprint(),'configuration':{'jpeg':'native segmentation; independent mm/pixel; raw Lab body; maximum IoU assignment with positive overlap; orientation by axis dot product','vox':'native grid; legacy defaults; 6-connected; SciPy; known vs automatic ROI; core descriptors only'}}
+    env={'python':platform.python_version(),'platform':platform.platform(),'split':a.split,'pilot':a.pilot,'candidate':a.candidate,'mode':a.mode,'code_sha256':fingerprint(),'configuration':{'jpeg':('subpixel chord; ' if a.candidate else 'legacy chord; ')+'native segmentation; independent mm/pixel; raw Lab body; maximum IoU assignment with positive overlap; orientation by axis dot product','vox':('additional known_midpoint and axial_envelope; isolated thickness; ' if a.candidate else '')+'native grid; legacy defaults; 6-connected; SciPy; known vs automatic ROI; core descriptors only'}}
     for pkg in ['numpy','pandas','scipy','scikit-image','opencv-python-headless','scikit-learn','Pillow']:
         try: env[pkg]=version(pkg)
         except PackageNotFoundError: env[pkg]='not installed'
-    (a.out/'environment.json').write_text(json.dumps(env,indent=2))
+    envfile=a.out/'environment.json'
+    if envfile.exists() and json.loads(envfile.read_text())!=env:
+        raise RuntimeError('Existing output environment differs; use a new output directory.')
+    envfile.write_text(json.dumps(env,indent=2))
     if a.approved_plan: (a.out/'approved_plan.json').write_bytes(a.approved_plan.read_bytes())
     for kind in ['jpeg','vox'] if a.mode=='both' else [a.mode]:
         root=a.data/kind.upper(); m=pd.read_csv(root/('manifest.csv' if kind=='jpeg' else 'manifest_truth.csv')); m=m[m.split==a.split]; idcol='image_id' if kind=='jpeg' else 'volume_id'
@@ -144,8 +165,8 @@ def main():
                 with warnings.catch_warnings(record=True) as ws:
                     warnings.simplefilter('always')
                     if kind=='jpeg':
-                        records,widths,log=jpeg_case(root,row,tr[tr.image_id==iid],pr[pr.image_id==iid]); pd.DataFrame(widths).to_csv(dest/'widths.csv',index=False)
-                    else: records,log=voxel_case(root,row,[f for f in features if f['group']==row.group])
+                        records,widths,log=jpeg_case(root,row,tr[tr.image_id==iid],pr[pr.image_id==iid],candidate=a.candidate); pd.DataFrame(widths).to_csv(dest/'widths.csv',index=False)
+                    else: records,log=voxel_case(root,row,[f for f in features if f['group']==row.group],candidate=a.candidate)
                     pd.DataFrame(records).to_csv(dest/'metrics.csv',index=False)
                     log['warnings']=[str(w.message) for w in ws]
             except Exception as e: log={idcol:iid,'group':row.group,'split':row.split,'variant':row.variant,'status':'failed','error':f'{type(e).__name__}: {e}','traceback':traceback.format_exc()}

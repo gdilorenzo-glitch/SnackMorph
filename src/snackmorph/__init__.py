@@ -1,2 +1,2 @@
-"""Research prototype extracted from the supplied notebook."""
-__version__ = "0.1.0.dev0"
+"""Research software for multiscale characterisation of expanded snacks."""
+__version__ = "1.0.0rc1"

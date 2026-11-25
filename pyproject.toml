@@ -1,9 +1,9 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 [project]
 name = "snackmorph-research"
-version = "0.1.0.dev0"
+version = "1.0.0rc1"
 requires-python = ">=3.10"
 dependencies = ["numpy", "scipy", "pandas", "opencv-python-headless", "scikit-image", "scikit-learn", "matplotlib", "statsmodels", "patsy", "openpyxl", "tifffile"]
 license = "MIT"

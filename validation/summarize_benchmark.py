@@ -16,7 +16,7 @@ def summarize(out):
         p=out/f'{kind}_metrics.csv'
         if not p.exists(): continue
         d=pd.read_csv(p); keys=['split','variant','family']+(['roi_mode'] if kind=='vox' else [])
-        pairs= [('length_mm','length_ref_mm',1),('ED','ED_ref',1),('centre_mm','centre_ref_mm',1),('Pk','Pk_ref',1),('Le','Le_ref',1),('L','L_ref',1),('a','a_ref',1),('b','b_ref',1)] if kind=='jpeg' else [('porosity_total','porosity_total_ref',100),('porosity_open','porosity_open_ref',100),('porosity_closed','porosity_closed_ref',100),('roi_mm3','roi_mm3_ref',1),('components','components_ref',1),('pore_thickness_um','pore_thickness_ref_um',1),('wall_thickness_um','wall_thickness_ref_um',1)]
+        pairs= [('length_mm','length_ref_mm',1),('ED','ED_ref',1),('centre_mm','centre_ref_mm',1),('Pk','Pk_ref',1),('Le','Le_ref',1),('L','L_ref',1),('a','a_ref',1),('b','b_ref',1)] if kind=='jpeg' else [('porosity_total','porosity_total_ref',100),('porosity_open','porosity_open_ref',100),('porosity_closed','porosity_closed_ref',100),('roi_mm3','roi_mm3_ref',1),('components','components_ref',1),('pore_thickness_um','pore_thickness_ref_um',1),('wall_thickness_um','wall_thickness_ref_um',1),('pore_thickness_truth_mask_um','pore_thickness_ref_um',1),('wall_thickness_truth_mask_um','wall_thickness_ref_um',1)]
         for k,g in d.groupby(keys,dropna=False):
             base=dict(pipeline=kind,**dict(zip(keys,k)),n_groups=g.group.nunique(),n_rows=len(g))
             for pred,ref,scale in pairs:

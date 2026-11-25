@@ -1,0 +1,7 @@
+image_id,group,variant,label,family
+J09_resize50,J09,resize50,13,constant
+J14_resize75,J14,resize75,36,flat_top
+J18_resize75,J18,resize75,11,flat_top
+J18_resize75,J18,resize75,13,flat_top
+J18_resize75,J18,resize75,28,flat_top
+J20_resize75,J20,resize75,27,asymmetric
