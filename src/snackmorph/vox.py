@@ -132,6 +132,18 @@ from scipy import ndimage as ndi
 from skimage import filters, measure, morphology, segmentation
 from scipy.spatial import ConvexHull
 import gc
+from inspect import signature
+
+# Preserve the historical strict size threshold across scikit-image versions.
+_REMOVE_SMALL_OBJECTS_HAS_MAX_SIZE = "max_size" in signature(morphology.remove_small_objects).parameters
+
+def _remove_small_objects_legacy(mask, min_size):
+    """Remove connected components with fewer than min_size elements."""
+    if min_size <= 1:
+        return mask.copy()
+    if _REMOVE_SMALL_OBJECTS_HAS_MAX_SIZE:
+        return morphology.remove_small_objects(mask, max_size=min_size - 1)
+    return morphology.remove_small_objects(mask, min_size=min_size)
 try:
     import edt as _edt_mod
 except ImportError:
@@ -453,7 +465,7 @@ def make_roi_slice(img, **p):
         t1 = a if t1 is None else t1
         t2 = b if t2 is None else t2
     # colla = classe piu' attenuante
-    glue = morphology.remove_small_objects(gs > t2, GLUE_MIN_AREA)
+    glue = _remove_small_objects_legacy(gs > t2, GLUE_MIN_AREA)
     glue_d = ndi.binary_dilation(glue, morphology.disk(p['glue_margin'])) if p['glue_margin'] > 0 else glue
     # cuneo = grande regione omogenea di grigio medio, regolarizzata con l'inviluppo convesso (indipendente dall'orientamento)
     mid = (gs > t1) & (gs <= t2)
@@ -644,9 +656,9 @@ def segment(img, roi, sigma, threshold, min_obj):
     material = (gs >= T) & roi
     pores = (gs < T) & roi
     if min_obj > 1:
-        material = morphology.remove_small_objects(material, min_obj)
+        material = _remove_small_objects_legacy(material, min_obj)
         pores = roi & ~material
-        pores = morphology.remove_small_objects(pores, min_obj)
+        pores = _remove_small_objects_legacy(pores, min_obj)
         material = roi & ~pores
     exterior = ~roi & (gs < T)                        # aria esterna: fuori ROI e al livello dei pori (cuneo e colla sono piu' chiari)
     return gs, T, material, pores, exterior
