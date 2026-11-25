@@ -28,4 +28,8 @@ For a real JPEG use the legacy laboratory layout with explicit lot, photo key, r
 - `.github/workflows/` basic CI configuration (not yet run on GitHub)
 
 ## Citation, licence and data
-Authors and copyright holder must approve an OSI-recognised code licence and create `LICENSE.txt` before a public release; no licence is selected here. Replace support/contact and citation placeholders at release; add a DOI if archived. Share experimental data only with rights-holder permission via an appropriate research-data repository, not the Git history. The original Colab notebook and historical experimental outputs are preserved separately.
+SnackMorph source code is distributed under the MIT License. See the LICENSE.txt file for the full licence terms.
+
+Experimental data and synthetic benchmark datasets are subject to separate licensing terms.
+
+Software support: gdilorenzo@unisa.it
