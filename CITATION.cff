@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "Please cite this software using the following metadata."
+title: "SnackMorph: Digital tools for automated multi-scale characterisation of expanded snacks"
+type: software
+authors:
+  - family-names: Di Lorenzo
+    given-names: Gianfranco
+    affiliation: University of Salerno
+  - family-names: Marra
+    given-names: Francesco
+    affiliation: University of Salerno
+version: 1.0.0rc1
+license: MIT
+repository-code: https://github.com/gdilorenzo-glitch/SnackMorph

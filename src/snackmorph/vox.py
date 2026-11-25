@@ -215,7 +215,8 @@ def discover_files():
 def parse_xml(path):
     """Legge un XML 'data_info': restituisce le impostazioni e tutti gli attributi appiattiti come xml_<tag>_<attributo>."""
     import xml.etree.ElementTree as ET
-    txt = open(path, 'rb').read().decode('utf-8-sig', errors='replace')
+    with open(path, 'rb') as fh:
+        txt = fh.read().decode('utf-8-sig', errors='replace')
     root = ET.fromstring(txt.encode('utf-8'))
     meta = {}
     for el in root.iter():
@@ -582,6 +583,58 @@ def roi_volume(vol, p, step, smooth_z, ds):
     for z in range(Z):
         roi[z] = upsample_mask(small[z], (Y, X))
     return roi, pr
+
+
+def roi_axial_envelope(vol, *, max_gap=16, seed_fraction=.75):
+    """Experimental axial convex envelope for bright, axially aligned specimens.
+
+    No truth mask used. Assumes convex XY cross sections, brighter material than
+    support, separated support in Z. Interpolates internal empty slices only;
+    unobserved terminal voids cannot be inferred. Not a general arbitrary-shape ROI.
+    Returns mask and diagnostic metadata; raises on ambiguous long axial gaps.
+    """
+    if not 0.5 < seed_fraction < 1 or max_gap < 0: raise ValueError('invalid ROI parameters')
+    vol=np.asarray(vol)
+    if vol.ndim!=3 or not np.isfinite(vol).all(): raise ValueError('expected finite ZYX volume')
+    # Bounded subsample for intensity statistics, not for segmentation.
+    sample=vol[::2,::2,::2]
+    lo,hi=map(float,np.percentile(sample,[10,95]))
+    if hi<=lo: raise ValueError('no intensity contrast')
+    low=lo+.5*(hi-lo); high=lo+seed_fraction*(hi-lo)
+    roi=np.zeros(vol.shape,bool); observed=[]
+    for z, plane in enumerate(vol):
+        if np.count_nonzero(plane>=high)<16: continue
+        fg=plane>=low
+        # Eliminate small islands before hull; keep all significant material fragments.
+        fg=_remove_small_objects_legacy(fg,8)
+        if not fg.any(): continue
+        roi[z]=morphology.convex_hull_image(fg)
+        observed.append(z)
+    if not observed: raise ValueError('no bright specimen slices')
+    for a,b in zip(observed[:-1],observed[1:]):
+        if b-a-1>max_gap: raise ValueError('ambiguous axial gap exceeds max_gap')
+        if b-a>1:
+            da=ndi.distance_transform_edt(roi[a])-ndi.distance_transform_edt(~roi[a])
+            db=ndi.distance_transform_edt(roi[b])-ndi.distance_transform_edt(~roi[b])
+            for z in range(a+1,b):
+                w=(z-a)/(b-a); roi[z]=(1-w)*da+w*db>0
+    return roi,dict(method='axial_convex_envelope',low=low,high=high,first_z=observed[0],last_z=observed[-1],observed_slices=len(observed),interpolated_slices=observed[-1]-observed[0]+1-len(observed),max_gap=max_gap)
+
+
+def segment_midpoint(img, roi, sigma=.5, min_obj=8):
+    """Candidate two-phase threshold: midpoint of raw Otsu-class medians.
+
+    Uses the original normalized smoothing and cleanup with an explicit threshold.
+    Assumes two distinguishable intensity populations inside the ROI.
+    """
+    vals=np.asarray(img)[roi]
+    if not vals.size or vals.min()==vals.max(): raise ValueError('two intensity classes required')
+    t=filters.threshold_otsu(vals)
+    lo=vals[vals<=t]; hi=vals[vals>t]
+    if not lo.size or not hi.size: raise ValueError('empty intensity class')
+    threshold=.5*(float(np.median(lo))+float(np.median(hi)))
+    return segment(img,roi,sigma,threshold,min_obj)
+
 
 def upsample_mask(m, shape):
     Y, X = shape

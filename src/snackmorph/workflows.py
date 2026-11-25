@@ -5,13 +5,13 @@ import numpy as np
 import pandas as pd
 from . import jpeg, vox
 
-def run_jpeg(path, calibration_csv, output, *, photo_key, lots, nrows, crop=None):
+def run_jpeg(path, calibration_csv, output, *, photo_key, lots, nrows, crop=None, width_method="legacy"):
     out=Path(output); out.mkdir(parents=True,exist_ok=False)
     im,samples=jpeg.segment_photo(str(path),nrows,crop)
     if len(samples)!=nrows*3:
         raise ValueError(f'Expected {nrows*3} grid cells; detected {len(samples)}')
     cal=jpeg.load_caliper(calibration_csv)
-    prof=jpeg.profile_table(samples,photo_key,lots,cal)
+    prof=jpeg.profile_table(samples,photo_key,lots,cal,width_method=width_method)
     if prof.empty: raise ValueError('No matching calibration rows')
     fit=jpeg.fit_all_profiles(prof)
     lab,bg=jpeg.photo_lab(im,samples)
@@ -21,7 +21,7 @@ def run_jpeg(path, calibration_csv, output, *, photo_key, lots, nrows, crop=None
     cv2.imwrite(str(out/'overlay.png'),cv2.cvtColor(jpeg.overlay_photo(im,samples),cv2.COLOR_RGB2BGR))
     for name,df in [('profiles',prof),('fit_legacy',fit),('fit_explicit_units',jpeg.explicit_amplitude(fit)),('colour',jpeg.colour_descriptors(col)),('colour_profiles',cp),('colour_fit',cm)]:
         df.to_csv(out/(name+'.csv'),index=False)
-    (out/'run.json').write_text(json.dumps(dict(photo_key=photo_key,lots=lots,nrows=nrows,crop=crop,detected_cells=len(samples),fitted_samples=len(fit),expected_samples=2*len(samples)*len(lots),colour_Lref=float(ref),colour_reference_scope='single photograph; original cross-photo Lref requires joint processing'),indent=2))
+    (out/'run.json').write_text(json.dumps(dict(width_method=width_method,photo_key=photo_key,lots=lots,nrows=nrows,crop=crop,detected_cells=len(samples),fitted_samples=len(fit),expected_samples=2*len(samples)*len(lots),colour_Lref=float(ref),colour_reference_scope='single photograph; original cross-photo Lref requires joint processing'),indent=2))
     return fit
 
 def run_vox(path, output, *, step, roi_path=None):

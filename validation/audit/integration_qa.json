@@ -1,0 +1,17 @@
+{
+  "candidate": "1.0.0rc1",
+  "tests_passed": 14,
+  "frozen_code_and_dataset_hashes_verified": true,
+  "wheel_built": true,
+  "remote_write": "403 Resource not accessible by integration",
+  "public_release_created": false,
+  "fixture_diagnostic": {
+    "scope": "post-hoc; unchanged algorithms; 20 existing test volumes",
+    "rows": 40,
+    "status": "20/20 per mode",
+    "automatic_median_pore_dice": 0.886887,
+    "automatic_median_signed_porosity_error_pp": -6.587455,
+    "known_median_pore_dice": 0.94912,
+    "known_median_signed_porosity_error_pp": -6.697646
+  }
+}

@@ -1,35 +1,40 @@
-# SnackMorph — private release candidate
-Python tools for multi-scale characterisation of expanded snacks from JPEG photographs and VOX micro-CT volumes. **Draft repository, not yet a SoftwareX-compliant public release.** Derived from the authors' original Colab notebook. Independent synthetic benchmark generators are included; their targets are not generated with SnackMorph. No experimental raw data or private results are included.
+# SnackMorph
 
-## Install
-Python 3.10+ (use 3.12 for the reference environment if supported). In a clean virtual environment:
+Python research software for multiscale characterisation of expanded snacks from controlled JPEG photographs and reconstructed VOX micro-CT volumes. Authors: Gianfranco Di Lorenzo and Francesco Marra, University of Salerno. Support: gdilorenzo@unisa.it. Code licence: MIT (`LICENSE.txt`). This is release candidate **1.0.0rc1**, not a published final release.
+
+## What it does
+
+* JPEG: chroma segmentation of a three-column grid, paired-specimen separation, curved centreline, perpendicular diameter profile, expansion and relative CIELAB descriptors. `--width-method subpixel` reduces discretisation bias; `legacy` remains the default for historical reproduction.
+* VOX: 16-bit volume + matching XML, specimen ROI with fixture-specific holder/adhesive removal or supplied boolean ZYX ROI, porosity and 2D/3D morphology, local thickness, watershed and anisotropy. `physical.configure` exposes spatial rescaling through Python for the original reference geometry. The CLI supports block averaging; see the manual for the Python API and regular-subsampling workflow.
+* Reproducibility: frozen source, case-level metrics, validation criteria, source/data hashes and execution logs are provided in `validation/audit/final_validation.zip`. They distinguish synthetic accuracy, historical numerical reproduction and experimental spatial sensitivity.
+
+## Installation and smoke test
+
+Reference Colab: Python 3.12; final local benchmark: Linux, Python 3.13.5. Use a clean virtual environment. From the repository root:
+
 ```sh
-python -m pip install -e '.[test]'
+python -m venv .venv
+# Activate .venv (Linux/macOS: source .venv/bin/activate; Windows: .venv\Scripts\Activate.ps1)
+python -m pip install -r requirements-benchmark.txt -e '.[test]'
 python -m snackmorph --help
+python -m snackmorph jpeg --help
+python -m snackmorph vox --help
 pytest -q
-```
-Optional accelerated CT dependencies: `python -m pip install -e '.[fast]'`. The historical environment is recorded in `requirements-tested.txt`; re-test and lock dependencies for the release. Generator requirements: `python -m pip install pillow numpy scipy`.
-
-## Example use
-```sh
 python -m snackmorph verify results/smoke
-python validation/generators/generate_jpeg.py --out validation_data/JPEG
-python validation/generators/generate_vox.py --out validation_data/VOX
 ```
-The `verify` command is the earlier internal smoke test, not independent validation. The new generators produce 100 JPEG images with instance labels and 30 VOX phantoms with theoretical masks. `validation/check_dataset.py` checks their integrity. See `docs/VALIDATION_PROTOCOL.md` for measurement definitions and the development/test split. Full scientific evaluation of the benchmark is pending. The test split is held out by geometry, not blinded.
 
-For a real JPEG use the legacy laboratory layout with explicit lot, photo key, rows, and independent calibration file as shown by `python -m snackmorph jpeg --help`. The historical central-diameter calibration is inappropriate for testing independent dimensional accuracy; use external mm/pixel and the lower-level `width_normals` interface. The 11 experimental photographs are independent; the B-04 day-zero mapping must be verified before including those records. For a VOX file place its XML alongside it, then `python -m snackmorph vox sample.VOX results/ct --step 4`. This legacy CLI uses block averaging; specify historical regular subsampling using the lower-level `vox.sample_volume` interface. Inspect ROI and diagnostic images; automatic ROI is not universally validated. A supplied ROI must be boolean and aligned with the sampled grid. Physical scaling for the CT experiment is in `src/snackmorph/physical.py`; the legacy CLI does not yet automatically activate it. JPEG physical scaling was evaluated in separate experiment scripts and is not yet integrated here. Web app and full batch orchestration remain pending.
+The smoke test and unit tests are software checks, not independent measurement validation. Optional `edt`/`SimpleITK` accelerators are not required for the reference synthetic benchmark. See `docs/USER_GUIDE.md` for inputs, units, output files and safe interpretation.
 
-## Structure
-- `src/snackmorph/` core Python modules and local CLI
-- `tests/` software regression/unit tests, not evidence of independent accuracy
-- `validation/` independent synthetic data generators and integrity checks
-- `docs/` validation protocol, release checklist and metadata worksheet
-- `.github/workflows/` basic CI configuration (not yet run on GitHub)
+## Reproduce the published benchmark candidate
 
-## Citation, licence and data
-SnackMorph source code is distributed under the MIT License. See the LICENSE.txt file for the full licence terms.
+Download the original synthetic dataset archives from the repository's [benchmark-data-v1](https://github.com/gdilorenzo-glitch/SnackMorph/releases/tag/benchmark-data-v1) and [fixture-data-v1](https://github.com/gdilorenzo-glitch/SnackMorph/releases/tag/fixture-data-v1) releases. Verify and extract them using the instructions in `docs/REPRODUCIBILITY.md`. The immutable analysis snapshot is embedded in the audit archive; the CLI integration was added afterwards without changing the validated chord function. The original source hashes and criteria remain unchanged. The reproduction wrapper verifies both archives before running, and uses new output directories. The fixture runner requires a filesystem with symlink support; Linux/Colab is recommended.
 
-Experimental data and synthetic benchmark datasets are subject to separate licensing terms.
+Held-out synthetic outcomes: 2,154/2,160 matched JPEG instances (2,148 with Dice >= 0.95), 1,076/1,080 fits returned; median absolute relative expansion-degree error 3.64%. With supplied ROI, median pore Dice 0.9976 and median absolute porosity error 0.0168 percentage points, but maximum error 10.35 points. On fixture phantoms, median ROI Dice 0.9546. Full metrics and failures are retained. The split is held out by geometry, not blinded; variants and chords are correlated. Criteria were analyst-defined and are not metrology standards. The extra post-hoc diagnostic is explicitly separate from the frozen assessment.
 
-Software support: gdilorenzo@unisa.it
+## Scope and limitations
+
+The JPEG calibration in the original experiment used central caliper diameters and is not an independent accuracy check. Colour values are relative without a calibrated target. Review overlays, pair assignments and failures; resized real photographs can fail quality checks. General VOX automatic ROI is not a universal segmentation method: it assumes the original circular-segment holder and adhesive; use a supplied ROI elsewhere. Fixture intensity/size differ from experimental scans, and automatic ROI validation does not establish accurate porosity. Physical scaling reduces selected grid-dependent differences but does not establish convergence. Exploratory midpoint/axial methods are diagnostics, not the primary algorithms. The experimental raw images/volumes and their independent reference annotations are not distributed here; experimental numerical reproduction is not independent accuracy. No deployed web service or external adoption is claimed.
+
+## Repository layout
+
+`src/snackmorph/` core; `tests/` software tests; `validation/` generators and evaluators; `validation/audit/` frozen plan, code and case-level results; `docs/` guide, validation definitions and metadata. Legacy protocol documents are historical; the frozen plan and reproducibility guide take precedence. `CITATION.cff` records software authorship. The software licence does not automatically license experimental data or synthetic data assets; dataset terms require separate confirmation. A final immutable release/tag and any archival DOI must be created before manuscript submission.
