@@ -6,6 +6,8 @@ name = "snackmorph-research"
 version = "0.1.0.dev0"
 requires-python = ">=3.10"
 dependencies = ["numpy", "scipy", "pandas", "opencv-python-headless", "scikit-image", "scikit-learn", "matplotlib", "statsmodels", "patsy", "openpyxl", "tifffile"]
+license = "MIT"
+license-files = ["LICENSE.txt"]
 [project.optional-dependencies]
 fast = ["edt", "SimpleITK"]
 test = ["pytest"]
