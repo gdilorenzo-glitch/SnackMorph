@@ -1,6 +1,6 @@
 # SnackMorph
 
-Python research software for multiscale characterisation of expanded snacks from controlled JPEG photographs and reconstructed VOX micro-CT volumes. Authors: Gianfranco Di Lorenzo and Francesco Marra, University of Salerno. Support: gdilorenzo@unisa.it. Code licence: MIT (`LICENSE.txt`). This is release candidate **1.0.0rc1**, not a published final release.
+Python research software for multiscale characterisation of expanded snacks from controlled JPEG photographs and reconstructed VOX micro-CT volumes. Authors: Gianfranco Di Lorenzo and Francesco Marra, University of Salerno. Support: gdilorenzo@unisa.it. Code licence: MIT (`LICENSE.txt`). Software version **1.0.0**. Versioned source: [v1.0.0](https://github.com/gdilorenzo-glitch/SnackMorph/releases/tag/v1.0.0).
 
 ## What it does
 
@@ -25,7 +25,7 @@ python -m snackmorph verify results/smoke
 
 The smoke test and unit tests are software checks, not independent measurement validation. Optional `edt`/`SimpleITK` accelerators are not required for the reference synthetic benchmark. See `docs/USER_GUIDE.md` for inputs, units, output files and safe interpretation.
 
-## Reproduce the published benchmark candidate
+## Reproduce the validation benchmark
 
 Download the original synthetic dataset archives from the repository's [benchmark-data-v1](https://github.com/gdilorenzo-glitch/SnackMorph/releases/tag/benchmark-data-v1) and [fixture-data-v1](https://github.com/gdilorenzo-glitch/SnackMorph/releases/tag/fixture-data-v1) releases. Verify and extract them using the instructions in `docs/REPRODUCIBILITY.md`. The immutable analysis snapshot is embedded in the audit archive; the CLI integration was added afterwards without changing the validated chord function. The original source hashes and criteria remain unchanged. The reproduction wrapper verifies both archives before running, and uses new output directories. The fixture runner requires a filesystem with symlink support; Linux/Colab is recommended.
 
@@ -37,4 +37,4 @@ The JPEG calibration in the original experiment used central caliper diameters a
 
 ## Repository layout
 
-`src/snackmorph/` core; `tests/` software tests; `validation/` generators and evaluators; `validation/audit/` frozen plan, code and case-level results; `docs/` guide, validation definitions and metadata. Legacy protocol documents are historical; the frozen plan and reproducibility guide take precedence. `CITATION.cff` records software authorship. The software licence does not automatically license experimental data or synthetic data assets; dataset terms require separate confirmation. A final immutable release/tag and any archival DOI must be created before manuscript submission.
+`src/snackmorph/` core; `tests/` software tests; `validation/` generators and evaluators; `validation/audit/` frozen plan, code and case-level results; `docs/` guide, validation definitions and metadata. Legacy protocol documents are historical; the frozen plan and reproducibility guide take precedence. `CITATION.cff` records software authorship. The software licence does not automatically license experimental data or synthetic data assets; dataset terms require separate confirmation. Cite the versioned source or its exact commit; an archival DOI may be added separately.

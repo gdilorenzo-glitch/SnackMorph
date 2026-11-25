@@ -1,9 +1,9 @@
-# Release candidate checklist
+# Release checklist
 
 - [x] MIT licence text matches the GitHub copyright notice supplied by the authors.
 - [x] Subpixel workflow and v2 code integrated locally; frozen source and original benchmark retained.
 - [x] Exact benchmark data/source hash verification wrapper; post-hoc descriptive diagnostics kept separate.
-- [ ] Push candidate to a new branch and review GitHub Actions; do not replace main without review.
+- [x] Candidate merged after successful PR #2 CI (14 tests). Recheck CI for the final version metadata.
 - [ ] Confirm code and dataset rights, funding, conflicts, CRediT and affiliation; approve AI disclosure.
-- [ ] After remote checks, create a public immutable release and update C1/C2/C7 to its version and link; archive DOI if available.
+- [ ] Confirm v1.0.0 release exists and archive DOI if available; update the submitted manuscript.
 - [ ] Confirm all synthetic release assets accessible anonymously; deposit/share data with approved terms or provide restriction statement.

@@ -9,6 +9,6 @@ authors:
   - family-names: Marra
     given-names: Francesco
     affiliation: University of Salerno
-version: 1.0.0rc1
+version: 1.0.0
 license: MIT
 repository-code: https://github.com/gdilorenzo-glitch/SnackMorph
